@@ -1,0 +1,7 @@
+{
+  "name": "AI Meeting Summarizer",
+  "description": "An intelligent application to record, transcribe, and summarize meetings. Simply record your conversation or upload an audio file, and let AI provide you with a clean transcript and a concise summary of key points, decisions, and action items.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
