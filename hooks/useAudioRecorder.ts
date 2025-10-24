@@ -7,6 +7,7 @@ interface UseAudioRecorderProps {
 const useAudioRecorder = ({ onRecordingComplete }: UseAudioRecorderProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [audioData, setAudioData] = useState(new Uint8Array(0));
+  const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -26,6 +27,7 @@ const useAudioRecorder = ({ onRecordingComplete }: UseAudioRecorderProps) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setIsRecording(true);
+      setError(null);
       audioChunksRef.current = [];
 
       // Setup visualizer
@@ -60,11 +62,25 @@ const useAudioRecorder = ({ onRecordingComplete }: UseAudioRecorderProps) => {
       mediaRecorder.start();
     } catch (err) {
       console.error('Error starting recording:', err);
+      let message = 'Si è verificato un errore sconosciuto durante l\'avvio della registrazione.';
+      if (err instanceof DOMException) {
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+              message = 'Accesso al microfono negato. Per favore, consenti l\'accesso al microfono nelle impostazioni del tuo browser e ricarica la pagina.';
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+              message = 'Nessun microfono trovato. Assicurati che un microfono sia collegato e funzionante.';
+          } else if (err.name === 'NotReadableError') {
+              message = 'Impossibile accedere al microfono. Potrebbe essere in uso da un\'altra applicazione.';
+          }
+      } else if (err instanceof Error) {
+          message = `Errore tecnico: ${err.message}`;
+      }
+      setError(message);
+      setIsRecording(false);
     }
   }, [onRecordingComplete, visualize]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (animationFrameRef.current) {
@@ -85,7 +101,7 @@ const useAudioRecorder = ({ onRecordingComplete }: UseAudioRecorderProps) => {
     };
   }, []);
 
-  return { isRecording, startRecording, stopRecording, audioData };
+  return { isRecording, startRecording, stopRecording, audioData, error };
 };
 
 export default useAudioRecorder;

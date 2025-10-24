@@ -21,6 +21,11 @@ const App: React.FC = () => {
     setError(null);
   };
 
+  const handleRecordingError = useCallback((errorMessage: string) => {
+    setError(errorMessage);
+    setAppState(AppState.WELCOME);
+  }, []);
+
   const handleRecordingComplete = useCallback(async (blob: Blob) => {
     setAudioBlob(blob);
     setAppState(AppState.PROCESSING_TRANSCRIPTION);
@@ -101,7 +106,7 @@ const App: React.FC = () => {
           />
         );
       case AppState.RECORDING:
-        return <RecordingScreen onRecordingComplete={handleRecordingComplete} />;
+        return <RecordingScreen onRecordingComplete={handleRecordingComplete} onRecordingError={handleRecordingError} />;
       case AppState.PROCESSING_TRANSCRIPTION:
         return (
           <Spinner

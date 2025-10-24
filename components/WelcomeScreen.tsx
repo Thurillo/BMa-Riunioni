@@ -1,7 +1,6 @@
-import React, { useRef, useState } from 'react';
-import { Mic, Upload, Loader, CheckCircle, XCircle, Settings, BrainCircuit } from 'lucide-react';
-import { AIConfig, AIProvider, OllamaConfig } from '../types';
-import { testOllamaConnection } from '../services/geminiService';
+import React, { useRef } from 'react';
+import { AIConfig } from '../types';
+import { Mic, Upload, BrainCircuit } from 'lucide-react';
 
 interface WelcomeScreenProps {
   onStartRecording: () => void;
@@ -10,20 +9,11 @@ interface WelcomeScreenProps {
   onAiConfigChange: (config: AIConfig) => void;
 }
 
-const ollamaModels = [
-  { id: 'llama3.1', name: 'Llama 3.1 (Testo)' },
-  { id: 'llava', name: 'LLaVA (Multimodale per Trascrizione)' },
-  { id: 'gemma2', name: 'Gemma 2 (Testo)' },
-];
-
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onStartRecording,
   onFileUpload,
-  aiConfig,
-  onAiConfigChange,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -36,144 +26,68 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     fileInputRef.current?.click();
   };
 
-  const handleProviderChange = (provider: AIProvider) => {
-    if (provider === AIProvider.OLLAMA) {
-      onAiConfigChange({
-        provider: AIProvider.OLLAMA,
-        serverUrl: 'http://192.168.20.153:11434', // Default to user's server
-        model: 'llama3.1', // Default model
-      });
-    } else {
-      onAiConfigChange({ provider: AIProvider.GEMINI });
-    }
-    setTestStatus('idle');
-  };
-
-  const handleOllamaChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    if (aiConfig.provider === AIProvider.OLLAMA) {
-      onAiConfigChange({
-        ...aiConfig,
-        [e.target.name]: e.target.value,
-      });
-      if (testStatus !== 'idle') {
-        setTestStatus('idle');
-      }
-    }
-  };
-
-  const handleTestConnection = async () => {
-    if (aiConfig.provider === AIProvider.OLLAMA) {
-      setTestStatus('testing');
-      const success = await testOllamaConnection((aiConfig as OllamaConfig).serverUrl);
-      setTestStatus(success ? 'success' : 'error');
-    }
-  };
-  
   return (
-    <div className="flex flex-col items-center justify-center gap-10 py-8">
-      <div className="text-center max-w-2xl">
-        <h2 className="text-3xl font-bold text-foreground mb-2">
+    <div className="flex flex-col items-center justify-center text-center gap-10 py-8">
+      <div className="max-w-3xl">
+        <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-4">
           Come vuoi iniziare?
         </h2>
-        <p className="text-muted text-lg">
-          Registra un nuovo audio o carica un file esistente. L'IA si occuperà del resto.
+        <p className="text-base md:text-lg text-muted">
+          Puoi avviare una nuova registrazione per catturare l'audio dal vivo, oppure caricare un file audio esistente per analizzarlo.
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-6 w-full max-w-2xl">
-        <button
-          onClick={onStartRecording}
-          className="flex items-center justify-center gap-3 w-full sm:w-auto bg-primary text-primary-foreground font-semibold px-8 py-4 rounded-lg transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus:ring-4 focus:ring-primary/30"
-          aria-label="Inizia a registrare"
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+        {/* Start Recording Card */}
+        <div 
+            className="bg-card border-2 border-border hover:border-primary p-8 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 transform hover:scale-105 shadow-card"
+            onClick={onStartRecording}
+            role="button"
+            tabIndex={0}
+            onKeyPress={(e) => e.key === 'Enter' && onStartRecording()}
         >
-          <Mic size={22} />
-          <span className="text-lg">Registra Audio</span>
-        </button>
-
-        <button
-          onClick={handleUploadClick}
-          className="flex items-center justify-center gap-3 w-full sm:w-auto bg-transparent text-primary font-semibold px-8 py-4 rounded-lg transition-colors duration-200 border-2 border-primary hover:bg-primary hover:text-primary-foreground focus:outline-none focus:ring-4 focus:ring-primary/30"
-          aria-label="Carica un file audio"
-        >
-          <Upload size={22} />
-          <span className="text-lg">Carica File</span>
-        </button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="audio/*"
-          className="hidden"
-          aria-hidden="true"
-        />
-      </div>
-
-      <div className="w-full max-w-2xl mt-8 pt-8 border-t border-border">
-        <h3 className="text-lg font-semibold text-foreground text-center mb-4 flex items-center justify-center gap-2">
-          <BrainCircuit size={20} />
-          Provider Intelligenza Artificiale
-        </h3>
-        <div className="flex justify-center p-1 bg-slate-100 rounded-xl max-w-sm mx-auto">
-          <button onClick={() => handleProviderChange(AIProvider.GEMINI)} className={`w-full text-center px-4 py-2 rounded-lg font-semibold transition-all ${aiConfig.provider === AIProvider.GEMINI ? 'bg-background shadow-sm text-primary' : 'text-muted hover:text-foreground'}`}>
-            Google Gemini
-          </button>
-          <button onClick={() => handleProviderChange(AIProvider.OLLAMA)} className={`w-full text-center px-4 py-2 rounded-lg font-semibold transition-all ${aiConfig.provider === AIProvider.OLLAMA ? 'bg-background shadow-sm text-primary' : 'text-muted hover:text-foreground'}`}>
-            Ollama (Locale)
-          </button>
+          <div className="bg-primary/10 p-5 rounded-full mb-5">
+            <Mic className="h-10 w-10 text-primary" />
+          </div>
+          <h3 className="text-xl font-bold text-foreground mb-2">Registra Audio</h3>
+          <p className="text-muted">
+            Cattura l'audio della riunione direttamente dal tuo microfono.
+          </p>
         </div>
 
-        {aiConfig.provider === AIProvider.OLLAMA && (
-            <div className="bg-accent/50 p-6 rounded-2xl space-y-4 max-w-lg mx-auto mt-6 border border-border">
-              <h4 className="font-semibold text-foreground flex items-center gap-2"><Settings size={16} /> Impostazioni Ollama</h4>
-              <div>
-                <label htmlFor="serverUrl" className="block text-sm font-medium text-foreground mb-1">URL del Server</label>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    id="serverUrl"
-                    name="serverUrl"
-                    value={(aiConfig as OllamaConfig).serverUrl}
-                    onChange={handleOllamaChange}
-                    className="flex-grow bg-background border border-border rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <button onClick={handleTestConnection} className="px-3 py-2 bg-muted/20 hover:bg-muted/30 text-muted font-semibold rounded-lg flex items-center justify-center w-28 shrink-0" disabled={testStatus === 'testing'}>
-                    {testStatus === 'testing' && <Loader size={18} className="animate-spin" />}
-                    {testStatus === 'idle' && 'Test'}
-                    {testStatus === 'success' && <CheckCircle size={18} className="text-green-500"/>}
-                    {testStatus === 'error' && <XCircle size={18} className="text-destructive"/>}
-                  </button>
-                </div>
-                 {testStatus === 'success' && <p className="text-sm text-green-600 mt-1">Connessione riuscita!</p>}
-                {testStatus === 'error' && (
-                  <div className="mt-2 bg-destructive/10 border border-destructive/20 text-destructive text-sm p-4 rounded-lg space-y-2">
-                      <p className="font-bold">Connessione fallita. Questo è probabilmente un problema di CORS.</p>
-                      <p>Per motivi di sicurezza, il browser blocca le richieste a un server locale a meno che non sia configurato per accettarle.</p>
-                      <div className="text-xs">
-                          <p className="font-semibold mt-3 mb-1">Soluzione Rapida:</p>
-                          <p>Prima di avviare il server Ollama, imposta queste variabili d'ambiente nel tuo terminale:</p>
-                          <pre className="bg-black/80 text-white/90 p-2 rounded-md my-2 text-xs select-all"><code>export OLLAMA_HOST=0.0.0.0<br />export OLLAMA_ORIGINS=*</code></pre>
-                          <p>Dopodiché, riavvia il server Ollama e riesegui il test.</p>
-                      </div>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label htmlFor="model" className="block text-sm font-medium text-foreground mb-1">Nome Modello</label>
-                <select
-                  id="model"
-                  name="model"
-                  value={(aiConfig as OllamaConfig).model}
-                  onChange={handleOllamaChange}
-                  className="w-full bg-background border border-border rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
-                >
-                  {ollamaModels.map(model => (
-                    <option key={model.id} value={model.id}>{model.name}</option>
-                  ))}
-                </select>
-                 <p className="text-xs text-muted mt-1">Per la trascrizione audio, è necessario usare un modello multimodale (es. LLaVA).</p>
-              </div>
-            </div>
-          )}
+        {/* Upload File Card */}
+        <div 
+            className="bg-card border-2 border-border hover:border-primary p-8 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 transform hover:scale-105 shadow-card"
+            onClick={handleUploadClick}
+            role="button"
+            tabIndex={0}
+            onKeyPress={(e) => e.key === 'Enter' && handleUploadClick()}
+        >
+          <div className="bg-primary/10 p-5 rounded-full mb-5">
+            <Upload className="h-10 w-10 text-primary" />
+          </div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept="audio/*"
+          />
+          <h3 className="text-xl font-bold text-foreground mb-2">Carica File</h3>
+          <p className="text-muted">
+            Analizza una registrazione audio esistente dal tuo dispositivo.
+          </p>
+        </div>
+      </div>
+      
+      {/* AI Settings - Kept simple as only Gemini is supported */}
+      <div className="mt-8 w-full max-w-md">
+        <div className="bg-background border border-border rounded-xl p-4 flex items-center justify-center gap-3">
+          <BrainCircuit size={20} className="text-primary"/>
+          <p className="text-sm font-semibold text-muted">
+              Powered by <span className="text-foreground">Google Gemini</span>
+          </p>
+        </div>
       </div>
     </div>
   );

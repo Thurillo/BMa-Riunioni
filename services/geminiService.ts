@@ -1,18 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
-import { AIConfig, AIProvider, OllamaConfig } from '../types';
+import { AIConfig, AIProvider } from "../types";
 
-// Helper function to convert a Blob to a base64 encoded string.
+// Helper to convert Blob to Base64
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (typeof reader.result === "string") {
-        // The result includes the data URL prefix (e.g., "data:audio/webm;base64,"),
-        // which we need to remove to get just the base64 part.
-        const base64String = reader.result.split(",")[1];
-        resolve(base64String);
+      if (typeof reader.result === 'string') {
+        const base64Data = reader.result.split(',')[1];
+        resolve(base64Data);
       } else {
-        reject(new Error("Failed to convert blob to base64 string."));
+        reject(new Error("Failed to read blob as string"));
       }
     };
     reader.onerror = reject;
@@ -20,173 +18,79 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
-export const testOllamaConnection = async (serverUrl: string): Promise<boolean> => {
-    if (!serverUrl) return false;
-    try {
-        // Use a more specific endpoint like /api/tags to check for a valid Ollama response
-        const response = await fetch(new URL('/api/tags', serverUrl));
-        return response.ok;
-    } catch (error) {
-        console.error("Ollama connection test failed:", error);
-        return false;
+
+export const transcribeAudio = async (audioBlob: Blob, aiConfig: AIConfig): Promise<string> => {
+    if (aiConfig.provider !== AIProvider.GEMINI) {
+        throw new Error('Solo Gemini è supportato in questa versione.');
     }
+    
+    // FIX: Initialize GoogleGenAI with apiKey from process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const audioBase64 = await blobToBase64(audioBlob);
+    
+    const audioPart = {
+        inlineData: {
+            mimeType: audioBlob.type,
+            data: audioBase64,
+        },
+    };
+    
+    const textPart = {
+        text: `Sei un assistente AI specializzato nella trascrizione di riunioni audio.
+Trascrivi l'audio fornito in modo accurato.
+Identifica i diversi oratori e etichettali come "Oratore 1", "Oratore 2", e così via.
+Formatta la trascrizione in modo chiaro e leggibile, con ogni intervento di un oratore su una nuova riga.
+Esempio:
+Oratore 1: Ciao a tutti.
+Oratore 2: Ciao, benvenuto.
+Trascrivi l'audio seguente:`,
+    };
+
+    // FIX: Use ai.models.generateContent to make API call for multimodal input.
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: [{ parts: [textPart, audioPart] }],
+    });
+    
+    // FIX: Extract text from response using response.text as per guidelines.
+    return response.text;
 };
 
-/**
- * Transcribes the given audio blob using the configured AI provider.
- * @param audioBlob The audio recording as a Blob.
- * @param config The AI provider configuration.
- * @returns A promise that resolves to the transcript text.
- */
-export const transcribeAudio = async (
-  audioBlob: Blob,
-  config: AIConfig
-): Promise<string> => {
-  if (config.provider === AIProvider.OLLAMA) {
-    const ollamaConfig = config as OllamaConfig;
-    if (!ollamaConfig.serverUrl || !ollamaConfig.model) {
-      throw new Error("URL del server e nome del modello di Ollama devono essere configurati.");
+export const summarizeTranscript = async (transcript: string, participants: string, aiConfig: AIConfig): Promise<string> => {
+    if (aiConfig.provider !== AIProvider.GEMINI) {
+        throw new Error('Solo Gemini è supportato in questa versione.');
     }
+    
+    // FIX: Initialize GoogleGenAI with apiKey from process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    let prompt = `Sei un assistente AI specializzato nel riassumere trascrizioni di riunioni.
+Il tuo compito è creare un riepilogo conciso, chiaro e ben strutturato della trascrizione fornita.
 
-    // Critical check: Transcription with this method requires a multimodal model.
-    if (ollamaConfig.model !== 'llava') {
-        throw new Error(`Per la trascrizione audio con Ollama, è necessario utilizzare un modello multimodale come 'llava'. Il modello selezionato '${ollamaConfig.model}' non è supportato per questa operazione.`);
-    }
+Il riepilogo deve includere:
+- **Argomenti Principali**: Elenca i punti chiave discussi durante la riunione.
+- **Decisioni Prese**: Evidenzia tutte le decisioni finali che sono state prese.
+- **Azioni da Intraprendere (Action Items)**: Elenca i compiti assegnati, specificando chi è responsabile (se menzionato) e le scadenze (se menzionate).
 
-    const audioData = await blobToBase64(audioBlob);
-    try {
-      const response = await fetch(new URL('/api/generate', ollamaConfig.serverUrl), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: ollamaConfig.model,
-          prompt: "Questo è un file audio di una riunione. Per favore, trascrivilo. Identifica i diversi oratori e etichettali come 'Oratore 1', 'Oratore 2', ecc. Aggiungi un timestamp nel formato [MM:SS] all'inizio di ogni frase o cambio di oratore. Fornisci solo la trascrizione completa.",
-          images: [audioData],
-          stream: false,
-        }),
-      });
+Formatta l'output in Markdown. Usa titoli in grassetto (es. **Argomenti Principali**) e liste puntate per la chiarezza.
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Errore del server Ollama: ${response.status} ${errorBody}`);
-      }
-
-      const result = await response.json();
-      if (!result.response) {
-        throw new Error("La risposta di Ollama non contiene un campo 'response'.");
-      }
-      return result.response.trim();
-    } catch (error) {
-      console.error("Errore durante la trascrizione con Ollama:", error);
-      if (error instanceof TypeError) {
-         throw new Error("Trascrizione con Ollama non riuscita. Controlla la configurazione del server Ollama (CORS/Host) e la connessione di rete.");
-      }
-      throw new Error(`Trascrizione con Ollama non riuscita. ${error instanceof Error ? error.message : 'Errore sconosciuto'}`);
-    }
-  }
-
-  // Gemini logic
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("La variabile d'ambiente API_KEY non è impostata.");
-  }
-  const ai = new GoogleGenAI({ apiKey });
-  const audioData = await blobToBase64(audioBlob);
-  const audioPart = {
-    inlineData: {
-      mimeType: audioBlob.type,
-      data: audioData,
-    },
-  };
-  const textPart = {
-    text: "Trascrivi questo audio di una riunione. Identifica i diversi oratori e etichettali come 'Oratore 1', 'Oratore 2', ecc. in modo sequenziale. Aggiungi un timestamp nel formato [MM:SS] all'inizio di ogni frase o cambio di oratore. Fornisci solo la trascrizione completa.",
-  };
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-pro",
-    contents: { parts: [audioPart, textPart] },
-  });
-  return response.text;
-};
-
-/**
- * Summarizes the given transcript using the configured AI provider.
- * @param transcript The meeting transcript.
- * @param participants A string listing the meeting participants.
- * @param config The AI provider configuration.
- * @returns A promise that resolves to the summary text.
- */
-export const summarizeTranscript = async (
-  transcript: string,
-  participants: string,
-  config: AIConfig
-): Promise<string> => {
-  const prompt = `
-Sei un assistente AI specializzato nel riepilogare le trascrizioni delle riunioni in italiano.
-
-**Trascrizione della Riunione:**
+Questa è la trascrizione della riunione:
 ---
 ${transcript}
 ---
-
-**Partecipanti noti:** ${participants || "Non specificato"}
-
-**Istruzioni:**
-Crea un riepilogo conciso ma completo della riunione. Struttura il riepilogo usando la formattazione Markdown come segue:
-
-**Punti Chiave:**
-- Elenca qui i principali argomenti discussi.
-
-**Decisioni Prese:**
-- Elenca qui tutte le decisioni finali raggiunte.
-
-**Azioni da Intraprendere:**
-- Elenca qui le azioni assegnate, specificando chi è responsabile (usando i nomi forniti se disponibili, altrimenti le etichette come 'Oratore 1') e, se menzionate, le scadenze.
-
-Sii oggettivo e basati esclusivamente sulle informazioni presenti nella trascrizione.
 `;
 
-  if (config.provider === AIProvider.OLLAMA) {
-    const ollamaConfig = config as OllamaConfig;
-    if (!ollamaConfig.serverUrl || !ollamaConfig.model) {
-      throw new Error("URL del server e nome del modello di Ollama devono essere configurati.");
+    if (participants) {
+        prompt += `\nI partecipanti alla riunione erano: ${participants}. Tieni conto di questo nel riepilogo se rilevante.`;
     }
-    try {
-      const response = await fetch(new URL('/api/generate', ollamaConfig.serverUrl), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: ollamaConfig.model,
-          prompt: prompt,
-          stream: false,
-        }),
-      });
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Errore del server Ollama: ${response.status} ${errorBody}`);
-      }
-      const result = await response.json();
-      if (!result.response) {
-        throw new Error("La risposta di Ollama non contiene un campo 'response'.");
-      }
-      return result.response.trim();
-    } catch(error) {
-      console.error("Errore durante il riepilogo con Ollama:", error);
-      if (error instanceof TypeError) {
-         throw new Error("Riepilogo con Ollama non riuscito. Controlla la configurazione del server Ollama (CORS/Host) e la connessione di rete.");
-      }
-      throw new Error(`Riepilogo con Ollama non riuscito. ${error instanceof Error ? error.message : 'Errore sconosciuto'}`);
-    }
-  }
 
-  // Gemini logic
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("La variabile d'ambiente API_KEY non è impostata.");
-  }
-  const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-  });
-  return response.text;
+    // FIX: Use ai.models.generateContent to make API call for text generation.
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    });
+    
+    // FIX: Extract text from response using response.text as per guidelines.
+    return response.text;
 };

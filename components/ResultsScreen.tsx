@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-// FIX: Import the Loader icon from lucide-react.
 import { Clipboard, RefreshCw, Sparkles, FileDown, Check, Search, Download, UserPlus, Edit3, Loader } from 'lucide-react';
 
 interface ResultsScreenProps {

@@ -5,10 +5,11 @@ import { Square } from 'lucide-react';
 
 interface RecordingScreenProps {
   onRecordingComplete: (blob: Blob) => void;
+  onRecordingError: (message: string) => void;
 }
 
-const RecordingScreen: React.FC<RecordingScreenProps> = ({ onRecordingComplete }) => {
-  const { isRecording, startRecording, stopRecording, audioData } = useAudioRecorder({ onRecordingComplete });
+const RecordingScreen: React.FC<RecordingScreenProps> = ({ onRecordingComplete, onRecordingError }) => {
+  const { isRecording, startRecording, stopRecording, audioData, error: recordingError } = useAudioRecorder({ onRecordingComplete });
   const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
@@ -16,12 +17,23 @@ const RecordingScreen: React.FC<RecordingScreenProps> = ({ onRecordingComplete }
   }, [startRecording]);
 
   useEffect(() => {
+    if (recordingError) {
+      onRecordingError(recordingError);
+    }
+  }, [recordingError, onRecordingError]);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isRecording) {
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         setElapsedTime((prevTime) => prevTime + 1);
       }, 1000);
-      return () => clearInterval(interval);
     }
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, [isRecording]);
 
   const formatTime = (time: number) => {
