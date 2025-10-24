@@ -78,10 +78,13 @@ export const transcribeAudio = async (
   }
 
   // Gemini logic
-  if (!process.env.API_KEY) {
+  // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY to align with guidelines and fix TypeScript error.
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    // FIX: Updated error message for consistency with the new API key source.
     throw new Error("La variabile d'ambiente API_KEY non è impostata.");
   }
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
   const audioData = await blobToBase64(audioBlob);
   const audioPart = {
     inlineData: {
@@ -166,10 +169,13 @@ Sii oggettivo e basati esclusivamente sulle informazioni presenti nella trascriz
   }
 
   // Gemini logic
-  if (!process.env.API_KEY) {
+  // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY to align with guidelines and fix TypeScript error.
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    // FIX: Updated error message for consistency with the new API key source.
     throw new Error("La variabile d'ambiente API_KEY non è impostata.");
   }
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: prompt,
