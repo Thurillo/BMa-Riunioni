@@ -144,7 +144,18 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   </button>
                 </div>
                  {testStatus === 'success' && <p className="text-sm text-green-600 mt-1">Connessione riuscita!</p>}
-                {testStatus === 'error' && <p className="text-sm text-destructive mt-1">Connessione fallita. Controlla l'URL e la configurazione del server Ollama (CORS).</p>}
+                {testStatus === 'error' && (
+                  <div className="mt-2 bg-destructive/10 border border-destructive/20 text-destructive text-sm p-4 rounded-lg space-y-2">
+                      <p className="font-bold">Connessione fallita. Questo è probabilmente un problema di CORS.</p>
+                      <p>Per motivi di sicurezza, il browser blocca le richieste a un server locale a meno che non sia configurato per accettarle.</p>
+                      <div className="text-xs">
+                          <p className="font-semibold mt-3 mb-1">Soluzione Rapida:</p>
+                          <p>Prima di avviare il server Ollama, imposta queste variabili d'ambiente nel tuo terminale:</p>
+                          <pre className="bg-black/80 text-white/90 p-2 rounded-md my-2 text-xs select-all"><code>export OLLAMA_HOST=0.0.0.0<br />export OLLAMA_ORIGINS=*</code></pre>
+                          <p>Dopodiché, riavvia il server Ollama e riesegui il test.</p>
+                      </div>
+                  </div>
+                )}
               </div>
               <div>
                 <label htmlFor="model" className="block text-sm font-medium text-foreground mb-1">Nome Modello</label>
