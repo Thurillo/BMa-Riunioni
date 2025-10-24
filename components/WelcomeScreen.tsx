@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { Mic, Upload, Loader, CheckCircle, XCircle } from 'lucide-react';
 import { AIConfig, AIProvider } from '../types';
