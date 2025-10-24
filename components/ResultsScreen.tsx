@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Clipboard, RefreshCw, Sparkles, FileDown, Check, Search, Download } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+// FIX: Import the Loader icon from lucide-react.
+import { Clipboard, RefreshCw, Sparkles, FileDown, Check, Search, Download, UserPlus, Edit3, Loader } from 'lucide-react';
 
 interface ResultsScreenProps {
   transcript: string;
@@ -24,7 +25,7 @@ const HighlightedText: React.FC<{text: string; highlight: string}> = ({ text, hi
         <>
             {parts.map((part, i) =>
                 i % 2 === 1 ? (
-                    <mark key={i} className="bg-brand-light text-brand-dark rounded px-0.5">{part}</mark>
+                    <mark key={i} className="bg-primary/20 text-primary-hover rounded px-1 py-0.5">{part}</mark>
                 ) : (
                     part
                 )
@@ -33,6 +34,43 @@ const HighlightedText: React.FC<{text: string; highlight: string}> = ({ text, hi
     );
 };
 
+const SummaryDisplay: React.FC<{ markdown: string }> = ({ markdown }) => {
+  const html = useMemo(() => {
+    const lines = markdown.split('\n');
+    let htmlContent = '';
+    let inList = false;
+
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
+        if (inList) {
+          htmlContent += '</ul>\n';
+          inList = false;
+        }
+        htmlContent += `<h3 class="text-lg font-semibold text-foreground mt-4 mb-2">${trimmedLine.substring(2, trimmedLine.length - 2)}</h3>\n`;
+      } else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+        if (!inList) {
+          htmlContent += '<ul class="list-disc list-inside space-y-1 text-muted">\n';
+          inList = true;
+        }
+        const itemContent = trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>');
+        htmlContent += `  <li>${itemContent}</li>\n`;
+      } else if (trimmedLine === '') {
+        if (inList) {
+          htmlContent += '</ul>\n';
+          inList = false;
+        }
+      }
+    });
+
+    if (inList) {
+      htmlContent += '</ul>\n';
+    }
+    return htmlContent;
+  }, [markdown]);
+
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+};
 
 const ResultsScreen: React.FC<ResultsScreenProps> = ({
   transcript,
@@ -48,9 +86,11 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({
   const [copied, setCopied] = useState<'transcript' | 'summary' | null>(null);
   const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [isEditingSpeakers, setIsEditingSpeakers] = useState(false);
 
   useEffect(() => {
     if (detectedSpeakers.length > 0) {
+      setIsEditingSpeakers(true);
       const initialNames = detectedSpeakers.reduce((acc, speaker) => {
         acc[speaker] = '';
         return acc;
@@ -73,6 +113,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({
     onUpdateSpeakerNames(speakerNames);
     const participantList = Object.values(speakerNames).filter(name => typeof name === 'string' && name.trim()).join(', ');
     setParticipants(participantList);
+    setIsEditingSpeakers(false);
   };
 
   const handleDownloadAudio = () => {
@@ -88,293 +129,147 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({
       document.body.removeChild(a);
     }
   };
-
-  const handleExportTranscript = () => {
+  
+  const handleExport = (content: string, title: string) => {
     const printableContent = `
       <!DOCTYPE html>
       <html lang="it">
         <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Trascrizione Riunione</title>
+          <meta charset="UTF-8"><title>${title}</title>
           <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-              line-height: 1.6; 
-              color: #111827;
-              margin: 2rem;
-            }
-            h1 { font-size: 1.5em; color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
-            pre { white-space: pre-wrap; word-wrap: break-word; font-size: 1em; }
-            @media print {
-              body { margin: 0; font-size: 10pt; }
-            }
+            body { font-family: system-ui, sans-serif; line-height: 1.6; color: #111; margin: 2rem; }
+            h1 { font-size: 1.5rem; color: #003c7a; border-bottom: 2px solid #0054a6; padding-bottom: 0.5rem; }
+            h3 { font-size: 1.2rem; color: #003c7a; margin-top: 1.5rem; }
+            ul { padding-left: 1.5rem; }
+            li { margin-bottom: 0.5rem; }
+            pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; font-size: 1rem; }
+            strong { color: #0f172a; }
+            @media print { body { margin: 1in; font-size: 11pt; } }
           </style>
         </head>
-        <body>
-          <h1>Trascrizione Completa</h1>
-          <pre>${transcript}</pre>
-        </body>
+        <body><h1>${title}</h1><div>${content}</div></body>
       </html>
     `;
     const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printableContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
-    } else {
-      alert('Per favore, consenti i pop-up per esportare la trascrizione.');
-    }
+    printWindow?.document.write(printableContent);
+    printWindow?.document.close();
+    printWindow?.focus();
+    setTimeout(() => printWindow?.print(), 250);
   };
-
-  const handleExportSummary = () => {
-    const markdownToHtml = (markdown: string): string => {
-      const lines = markdown.split('\n');
-      let html = '';
-      let inList = false;
-
-      lines.forEach(line => {
-        const trimmedLine = line.trim();
-        if (trimmedLine.startsWith('**') && trimmedLine.endsWith(':')) {
-          if (inList) {
-            html += '</ul>\n';
-            inList = false;
-          }
-          html += `<h3>${trimmedLine.substring(2, trimmedLine.length - 1)}</h3>\n`;
-        } else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
-          if (!inList) {
-            html += '<ul>\n';
-            inList = true;
-          }
-          const itemContent = trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-          html += `  <li>${itemContent}</li>\n`;
-        } else if (trimmedLine === '') {
-          if (inList) {
-            html += '</ul>\n';
-            inList = false;
-          }
-        } else {
-          if (inList) {
-            html += '</ul>\n';
-            inList = false;
-          }
-          if (trimmedLine.length > 0) {
-            const pLine = trimmedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            html += `<p>${pLine}</p>\n`;
-          }
-        }
-      });
-
-      if (inList) {
-        html += '</ul>\n';
-      }
-      return html;
-    };
-
-    const printableContent = `
-      <!DOCTYPE html>
-      <html lang="it">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Riepilogo Riunione</title>
-          <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-              line-height: 1.6; 
-              color: #111827;
-              margin: 2rem;
-            }
-            h1 { 
-              font-size: 2em;
-              color: #1e3a8a; 
-              border-bottom: 2px solid #3b82f6;
-              padding-bottom: 0.5rem;
-              margin-bottom: 1.5rem;
-            }
-            h3 { 
-              font-size: 1.25em;
-              color: #1e40af;
-              margin-top: 2rem; 
-              margin-bottom: 1rem;
-              font-weight: 600;
-            }
-            ul { 
-              padding-left: 1.5rem; 
-              list-style-type: disc;
-              margin-bottom: 1rem;
-            }
-            li { 
-              margin-bottom: 0.5rem; 
-            }
-            p {
-              margin-bottom: 1rem;
-            }
-            strong {
-              font-weight: 600;
-            }
-            @media print {
-              body { 
-                margin: 0; 
-                font-size: 10pt;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Riepilogo Riunione AI</h1>
-          ${markdownToHtml(summary)}
-        </body>
-      </html>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printableContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
-    } else {
-      alert('Per favore, consenti i pop-up per esportare il riepilogo.');
-    }
-  };
-
-  const ResultCard: React.FC<{ title: string; content: React.ReactNode; onCopy: () => void; copyType: 'transcript' | 'summary', onExport?: () => void }> = ({ title, content, onCopy, copyType, onExport }) => (
-    <div className="bg-bg-primary rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-semibold text-text-primary">{title}</h3>
-        <div className="flex items-center gap-2">
-            {onExport && (
-              <button onClick={onExport} className="text-text-secondary hover:text-brand-primary transition-colors p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary" aria-label={`Esporta ${title}`}>
-                <FileDown size={18} />
-              </button>
-            )}
-            <button onClick={onCopy} className="text-text-secondary hover:text-brand-primary transition-colors p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary" aria-label={`Copia ${title}`}>
-              {copied === copyType ? 'Copiato!' : <Clipboard size={18} />}
-            </button>
-        </div>
-      </div>
-      <div className="max-h-60 overflow-y-auto p-4 bg-bg-secondary border border-bg-tertiary rounded-md text-text-secondary whitespace-pre-wrap">
-        {content}
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-8">
-      {transcript && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        {/* Transcript Column */}
         <div className="space-y-4">
-            <div className="relative">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+          <h3 className="text-xl font-semibold text-foreground">Trascrizione Completa</h3>
+           <div className="relative">
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
                 <input
                     type="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Cerca nella trascrizione..."
-                    className="w-full bg-bg-secondary border border-bg-tertiary rounded-lg py-2 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    className="w-full bg-background border border-border rounded-lg py-2 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-primary"
                     aria-label="Cerca nella trascrizione"
                 />
             </div>
-
-            <ResultCard 
-              title="Trascrizione Completa" 
-              content={<HighlightedText text={transcript} highlight={searchQuery} />}
-              onCopy={() => handleCopy(transcript, 'transcript')}
-              copyType="transcript"
-              onExport={handleExportTranscript}
-            />
+            <div className="bg-background rounded-xl p-4 border border-border">
+                <div className="max-h-96 overflow-y-auto pr-2 text-muted whitespace-pre-wrap text-sm leading-relaxed">
+                    <HighlightedText text={transcript} highlight={searchQuery} />
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                 <button onClick={() => handleCopy(transcript, 'transcript')} className="flex items-center gap-2 text-sm text-muted hover:text-primary font-semibold p-2 rounded-lg bg-background border border-border">
+                    {copied === 'transcript' ? <><Check size={16} className="text-green-500" /> Copiato</> : <><Clipboard size={16} /> Copia</>}
+                 </button>
+                 <button onClick={() => handleExport(`<pre>${transcript}</pre>`, 'Trascrizione Riunione')} className="flex items-center gap-2 text-sm text-muted hover:text-primary font-semibold p-2 rounded-lg bg-background border border-border">
+                    <FileDown size={16} /> Esporta
+                 </button>
+            </div>
         </div>
-      )}
 
-      {detectedSpeakers.length > 0 && (
-        <div className="bg-bg-primary rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-text-primary mb-4">Identifica Oratori</h3>
-          <p className="text-text-secondary mb-4">
-            Sostituisci le etichette degli oratori con i nomi reali per una trascrizione e un riepilogo più chiari.
-          </p>
-          <div className="space-y-3">
-            {detectedSpeakers.map(speaker => (
-              <div key={speaker} className="grid grid-cols-1 sm:grid-cols-3 items-center gap-2 sm:gap-4">
-                <label htmlFor={speaker} className="sm:text-right text-text-secondary font-medium">{speaker}</label>
-                <input
-                  id={speaker}
-                  type="text"
-                  value={speakerNames[speaker] || ''}
-                  onChange={(e) => handleSpeakerNameChange(speaker, e.target.value)}
-                  placeholder="Inserisci nome..."
-                  className="sm:col-span-2 bg-bg-secondary border border-bg-tertiary rounded-md py-2 px-4 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                />
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-end mt-6">
-            <button
-              onClick={handleApplyNames}
-              className="flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-dark text-white font-bold py-2 px-6 rounded-lg transition-colors"
-            >
-              <Check size={18} />
-              Applica Nomi
-            </button>
-          </div>
+        {/* Summary & Actions Column */}
+        <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-foreground">Riepilogo e Azioni</h3>
+            
+            {isEditingSpeakers && (
+                 <div className="bg-accent/50 rounded-xl p-6 border border-primary/20">
+                    <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2"><UserPlus size={18}/> Identifica Oratori</h4>
+                    <p className="text-sm text-muted mb-4">
+                        Assegna i nomi corretti per una maggiore chiarezza.
+                    </p>
+                    <div className="space-y-3">
+                        {detectedSpeakers.map(speaker => (
+                        <div key={speaker} className="grid grid-cols-3 items-center gap-3">
+                            <label htmlFor={speaker} className="text-right text-muted font-medium text-sm">{speaker}</label>
+                            <input
+                            id={speaker}
+                            type="text"
+                            value={speakerNames[speaker] || ''}
+                            onChange={(e) => handleSpeakerNameChange(speaker, e.target.value)}
+                            placeholder="Nome..."
+                            className="col-span-2 bg-card border border-border rounded-lg py-1.5 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                        </div>
+                        ))}
+                    </div>
+                    <div className="flex justify-end mt-5">
+                        <button onClick={handleApplyNames} className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-primary-foreground font-bold py-2 px-4 rounded-lg text-sm">
+                            <Check size={16} /> Applica Nomi
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {summary ? (
+                 <div className="bg-background rounded-xl p-6 border border-border space-y-2">
+                    <SummaryDisplay markdown={summary} />
+                    <div className="flex items-center gap-2 pt-4">
+                        <button onClick={() => handleCopy(summary, 'summary')} className="flex items-center gap-2 text-sm text-muted hover:text-primary font-semibold p-2 rounded-lg bg-card border border-border">
+                           {copied === 'summary' ? <><Check size={16} className="text-green-500" /> Copiato</> : <><Clipboard size={16} /> Copia</>}
+                        </button>
+                        <button onClick={() => handleExport(document.querySelector('.summary-content-wrapper')?.innerHTML || '', 'Riepilogo Riunione')} className="flex items-center gap-2 text-sm text-muted hover:text-primary font-semibold p-2 rounded-lg bg-card border border-border">
+                           <FileDown size={16} /> Esporta
+                        </button>
+                    </div>
+                 </div>
+            ) : (
+                <div className="bg-accent/50 rounded-xl p-6 border border-primary/20 text-center">
+                    <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2 justify-center"><Sparkles size={18}/> Genera Riepilogo Intelligente</h4>
+                    <p className="text-sm text-muted mb-4">
+                        Elenca i partecipanti (opzionale) per migliorare l'accuratezza del riepilogo.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <input
+                        type="text"
+                        value={participants}
+                        onChange={(e) => setParticipants(e.target.value)}
+                        placeholder="es. Mario Rossi, Luca Bianchi"
+                        className="flex-grow bg-card border border-border rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <button
+                        onClick={() => onGenerateSummary(participants)}
+                        disabled={isSummarizing}
+                        className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-primary-foreground font-bold py-2 px-5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                        {isSummarizing ? <><Loader size={18} className="animate-spin" /> Generazione...</> : 'Riepiloga'}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
-      )}
-      
-      {summary && (
-        <ResultCard 
-          title="Riepilogo AI" 
-          content={summary}
-          onCopy={() => handleCopy(summary, 'summary')}
-          copyType="summary"
-          onExport={handleExportSummary}
-        />
-      )}
+      </div>
 
-      {!summary && transcript && (
-        <div className="bg-bg-primary rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-text-primary mb-4">Genera Riepilogo</h3>
-          <p className="text-text-secondary mb-4">
-            Per migliorare il riepilogo, elenca i partecipanti alla riunione qui sotto (opzionale, separati da virgola).
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="text"
-              value={participants}
-              onChange={(e) => setParticipants(e.target.value)}
-              placeholder="es. Alice, Bob, Charlie"
-              className="flex-grow bg-bg-secondary border border-bg-tertiary rounded-md py-2 px-4 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-            />
-            <button
-              onClick={() => onGenerateSummary(participants)}
-              disabled={isSummarizing}
-              className="flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-dark text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Sparkles size={18} />
-              {isSummarizing ? 'Generazione...' : 'Riepiloga'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4 border-t border-bg-tertiary mt-8">
-        <button
-          onClick={onReset}
-          className="flex items-center justify-center gap-2 w-full sm:w-auto bg-slate-500 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
-        >
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-6 border-t border-border mt-8">
+        <button onClick={onReset} className="flex items-center justify-center gap-2 w-full sm:w-auto bg-primary hover:bg-primary-hover text-primary-foreground font-bold py-2.5 px-6 rounded-lg">
           <RefreshCw size={18} />
-          Inizia Nuova Sessione
+          Nuova Sessione
         </button>
         {audioBlob && (
-          <button
-            onClick={handleDownloadAudio}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto bg-bg-tertiary hover:bg-slate-300 text-text-primary font-bold py-2 px-6 rounded-lg transition-colors"
-          >
+          <button onClick={handleDownloadAudio} className="flex items-center justify-center gap-2 w-full sm:w-auto bg-card border-2 border-border hover:border-primary text-foreground font-bold py-2.5 px-6 rounded-lg">
             <Download size={18} />
-            Scarica Audio
+            Scarica Audio (.webm)
           </button>
         )}
       </div>

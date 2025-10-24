@@ -15,27 +15,39 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioData }) => {
     const width = canvas.width;
     const context = canvas.getContext('2d');
     if (!context) return;
+
+    const barWidth = 4;
+    const numBars = Math.floor(width / (barWidth + 2)); // +2 for spacing
+    const dataPointsPerBar = Math.floor(audioData.length / numBars);
     
-    let x = 0;
-    const sliceWidth = (width * 1.0) / audioData.length;
-
-    context.lineWidth = 2;
-    context.strokeStyle = '#0054a6'; // brand-primary
     context.clearRect(0, 0, width, height);
-    context.beginPath();
-    context.moveTo(0, height / 2);
 
-    for (const item of audioData) {
-      const y = (item / 255.0) * height;
-      context.lineTo(x, y);
-      x += sliceWidth;
+    for (let i = 0; i < numBars; i++) {
+        let sum = 0;
+        for (let j = 0; j < dataPointsPerBar; j++) {
+            sum += audioData[i * dataPointsPerBar + j];
+        }
+        const avg = dataPointsPerBar > 0 ? sum / dataPointsPerBar : 0;
+        
+        // Normalize the average to be between 0 and 1
+        const normalized = avg / 255;
+        
+        // Make the bar height react more dynamically
+        const barHeight = Math.pow(normalized, 2) * height * 0.9 + (height * 0.05);
+
+        const x = i * (barWidth + 2);
+        const y = (height - barHeight) / 2;
+        
+        const gradient = context.createLinearGradient(x, y, x, y + barHeight);
+        gradient.addColorStop(0, '#0054a6'); // primary
+        gradient.addColorStop(1, '#e6f0fa'); // accent
+        context.fillStyle = gradient;
+
+        context.fillRect(x, y, barWidth, barHeight);
     }
-
-    context.lineTo(x, height / 2);
-    context.stroke();
   }, [audioData]);
 
-  return <canvas ref={canvasRef} width="600" height="150" className="w-full h-36 rounded-lg bg-bg-tertiary" />;
+  return <canvas ref={canvasRef} className="w-full h-full" />;
 };
 
 export default AudioVisualizer;

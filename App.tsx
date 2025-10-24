@@ -105,11 +105,12 @@ const App: React.FC = () => {
       case AppState.PROCESSING_TRANSCRIPTION:
         return (
           <Spinner
-            title="Trascrizione della Riunione"
+            title="Trascrizione della Riunione in Corso"
             steps={[
-              'Caricamento del file audio',
-              'Analisi dei modelli vocali',
-              'Generazione della trascrizione completa',
+              'Caricamento del file audio al server sicuro',
+              'Analisi dei modelli vocali e segmentazione',
+              'Generazione della trascrizione testuale',
+              'Finalizzazione e formattazione del documento',
             ]}
           />
         );
@@ -133,34 +134,29 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="w-full max-w-4xl mx-auto">
-        <header className="text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
-                <h1 className="text-6xl font-extrabold">
-                    <span className="text-brand-primary">B</span>
-                    <span className="text-brand-primary">M</span>
-                    <span className="text-brand-secondary">A</span>
-                </h1>
-            </div>
-          <h2 className="text-3xl sm:text-4xl font-bold text-text-primary tracking-tight">
-            Riepilogo Riunioni AI
-          </h2>
-          <p className="mt-3 text-lg text-text-secondary">
-            Registra, trascrivi e riepiloga le tue riunioni con la potenza dell'IA.
+    <div className="min-h-screen bg-background flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans">
+      <div className="w-full max-w-5xl mx-auto">
+        <header className="text-center pb-8 border-b border-border">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                <span className="text-primary">BMA</span>
+                <span className="text-destructive">.</span>
+                <span className="text-foreground font-semibold"> AI Meeting Summarizer</span>
+            </h1>
+          <p className="mt-2 text-base text-muted max-w-2xl mx-auto">
+            Registra, trascrivi e riepiloga le tue riunioni con la potenza dell'IA. Semplice, veloce e intelligente.
           </p>
         </header>
-        <main className="bg-bg-secondary shadow-xl rounded-2xl p-6 sm:p-8 transition-all duration-300">
+        <main className="transition-all duration-300 pt-10">
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-xl relative mb-6" role="alert">
               <strong className="font-bold">Errore: </strong>
               <span className="block sm:inline">{error}</span>
             </div>
           )}
           {renderContent()}
         </main>
-        <footer className="text-center mt-8 text-sm text-gray-500">
-          <p>Realizzato per BMA Sansepolcro</p>
+        <footer className="text-center mt-16 pt-8 border-t border-border text-sm text-muted/80">
+          <p>Realizzato con ♥ per BMA Sansepolcro</p>
         </footer>
       </div>
     </div>

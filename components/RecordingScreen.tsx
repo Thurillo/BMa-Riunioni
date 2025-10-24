@@ -31,22 +31,28 @@ const RecordingScreen: React.FC<RecordingScreenProps> = ({ onRecordingComplete }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center gap-8">
+    <div className="flex flex-col items-center justify-center gap-8 py-10">
       <div className="text-center">
-        <p className="text-xl text-text-secondary">Registrazione in corso...</p>
-        <p className="text-6xl font-bold text-text-primary tracking-wider mt-2">
+        <div className="flex items-center gap-3 justify-center text-xl text-muted">
+             <div className="w-3 h-3 rounded-full bg-destructive animate-pulse"></div>
+            <span>Registrazione in corso...</span>
+        </div>
+        <p className="text-7xl font-bold text-foreground tracking-wider mt-2 font-mono">
           {formatTime(elapsedTime)}
         </p>
       </div>
       
-      <AudioVisualizer audioData={audioData} />
+      <div className="w-full max-w-lg h-36">
+        <AudioVisualizer audioData={audioData} />
+      </div>
+
 
       <button
         onClick={stopRecording}
-        className="flex items-center justify-center gap-3 bg-brand-secondary hover:bg-red-700 text-white font-bold py-4 px-8 rounded-full transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-brand-secondary/50 shadow-lg"
+        className="flex items-center justify-center gap-3 bg-destructive hover:bg-destructive-hover text-destructive-foreground font-bold py-4 px-8 rounded-full transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-destructive/50 shadow-lg"
         aria-label="Interrompi Registrazione"
       >
-        <Square size={24} fill="white" />
+        <Square size={24} fill="currentColor" />
         Interrompi Registrazione
       </button>
     </div>
