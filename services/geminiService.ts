@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { AIConfig, AIProvider } from '../types';
+import { AIConfig, AIProvider, OllamaConfig } from '../types';
 
 // Helper function to convert a Blob to a base64 encoded string.
 const blobToBase64 = (blob: Blob): Promise<string> => {
@@ -23,7 +23,8 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 export const testOllamaConnection = async (serverUrl: string): Promise<boolean> => {
     if (!serverUrl) return false;
     try {
-        const response = await fetch(serverUrl);
+        // Use a more specific endpoint like /api/tags to check for a valid Ollama response
+        const response = await fetch(new URL('/api/tags', serverUrl));
         return response.ok;
     } catch (error) {
         console.error("Ollama connection test failed:", error);
@@ -42,16 +43,23 @@ export const transcribeAudio = async (
   config: AIConfig
 ): Promise<string> => {
   if (config.provider === AIProvider.OLLAMA) {
-    if (!config.serverUrl || !config.model) {
+    const ollamaConfig = config as OllamaConfig;
+    if (!ollamaConfig.serverUrl || !ollamaConfig.model) {
       throw new Error("URL del server e nome del modello di Ollama devono essere configurati.");
     }
+
+    // Critical check: Transcription with this method requires a multimodal model.
+    if (ollamaConfig.model !== 'llava') {
+        throw new Error(`Per la trascrizione audio con Ollama, è necessario utilizzare un modello multimodale come 'llava'. Il modello selezionato '${ollamaConfig.model}' non è supportato per questa operazione.`);
+    }
+
     const audioData = await blobToBase64(audioBlob);
     try {
-      const response = await fetch(`${config.serverUrl}/api/generate`, {
+      const response = await fetch(new URL('/api/generate', ollamaConfig.serverUrl), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: config.model,
+          model: ollamaConfig.model,
           prompt: "Questo è un file audio di una riunione. Per favore, trascrivilo. Identifica i diversi oratori e etichettali come 'Oratore 1', 'Oratore 2', ecc. Aggiungi un timestamp nel formato [MM:SS] all'inizio di ogni frase o cambio di oratore. Fornisci solo la trascrizione completa.",
           images: [audioData],
           stream: false,
@@ -70,7 +78,10 @@ export const transcribeAudio = async (
       return result.response.trim();
     } catch (error) {
       console.error("Errore durante la trascrizione con Ollama:", error);
-      throw new Error("Trascrizione con Ollama non riuscita. Controlla l'URL del server, il nome del modello e assicurati che il modello supporti l'input audio/immagini.");
+      if (error instanceof TypeError) {
+         throw new Error("Trascrizione con Ollama non riuscita. Controlla la configurazione del server Ollama (CORS/Host) e la connessione di rete.");
+      }
+      throw new Error(`Trascrizione con Ollama non riuscita. ${error instanceof Error ? error.message : 'Errore sconosciuto'}`);
     }
   }
 
@@ -135,15 +146,16 @@ Sii oggettivo e basati esclusivamente sulle informazioni presenti nella trascriz
 `;
 
   if (config.provider === AIProvider.OLLAMA) {
-    if (!config.serverUrl || !config.model) {
+    const ollamaConfig = config as OllamaConfig;
+    if (!ollamaConfig.serverUrl || !ollamaConfig.model) {
       throw new Error("URL del server e nome del modello di Ollama devono essere configurati.");
     }
     try {
-      const response = await fetch(`${config.serverUrl}/api/generate`, {
+      const response = await fetch(new URL('/api/generate', ollamaConfig.serverUrl), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: config.model,
+          model: ollamaConfig.model,
           prompt: prompt,
           stream: false,
         }),
@@ -159,7 +171,10 @@ Sii oggettivo e basati esclusivamente sulle informazioni presenti nella trascriz
       return result.response.trim();
     } catch(error) {
       console.error("Errore durante il riepilogo con Ollama:", error);
-      throw new Error("Riepilogo con Ollama non riuscito. Controlla l'URL del server e il nome del modello.");
+      if (error instanceof TypeError) {
+         throw new Error("Riepilogo con Ollama non riuscito. Controlla la configurazione del server Ollama (CORS/Host) e la connessione di rete.");
+      }
+      throw new Error(`Riepilogo con Ollama non riuscito. ${error instanceof Error ? error.message : 'Errore sconosciuto'}`);
     }
   }
 

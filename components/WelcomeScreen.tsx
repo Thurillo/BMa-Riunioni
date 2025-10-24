@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Mic, Upload, Loader, CheckCircle, XCircle, Settings, BrainCircuit } from 'lucide-react';
-import { AIConfig, AIProvider } from '../types';
+import { AIConfig, AIProvider, OllamaConfig } from '../types';
 import { testOllamaConnection } from '../services/geminiService';
 
 interface WelcomeScreenProps {
@@ -9,6 +9,12 @@ interface WelcomeScreenProps {
   aiConfig: AIConfig;
   onAiConfigChange: (config: AIConfig) => void;
 }
+
+const ollamaModels = [
+  { id: 'llama3.1', name: 'Llama 3.1 (Testo)' },
+  { id: 'llava', name: 'LLaVA (Multimodale per Trascrizione)' },
+  { id: 'gemma2', name: 'Gemma 2 (Testo)' },
+];
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onStartRecording,
@@ -34,8 +40,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     if (provider === AIProvider.OLLAMA) {
       onAiConfigChange({
         provider: AIProvider.OLLAMA,
-        serverUrl: 'http://localhost:11434',
-        model: 'llava',
+        serverUrl: 'http://192.168.20.153:11434', // Default to user's server
+        model: 'llama3.1', // Default model
       });
     } else {
       onAiConfigChange({ provider: AIProvider.GEMINI });
@@ -43,7 +49,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     setTestStatus('idle');
   };
 
-  const handleOllamaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOllamaChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     if (aiConfig.provider === AIProvider.OLLAMA) {
       onAiConfigChange({
         ...aiConfig,
@@ -58,7 +64,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   const handleTestConnection = async () => {
     if (aiConfig.provider === AIProvider.OLLAMA) {
       setTestStatus('testing');
-      const success = await testOllamaConnection(aiConfig.serverUrl);
+      const success = await testOllamaConnection((aiConfig as OllamaConfig).serverUrl);
       setTestStatus(success ? 'success' : 'error');
     }
   };
@@ -126,7 +132,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     type="text"
                     id="serverUrl"
                     name="serverUrl"
-                    value={aiConfig.serverUrl}
+                    value={(aiConfig as OllamaConfig).serverUrl}
                     onChange={handleOllamaChange}
                     className="flex-grow bg-background border border-border rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -138,20 +144,22 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   </button>
                 </div>
                  {testStatus === 'success' && <p className="text-sm text-green-600 mt-1">Connessione riuscita!</p>}
-                {testStatus === 'error' && <p className="text-sm text-destructive mt-1">Connessione fallita. Controlla l'URL.</p>}
+                {testStatus === 'error' && <p className="text-sm text-destructive mt-1">Connessione fallita. Controlla l'URL e la configurazione del server Ollama (CORS).</p>}
               </div>
               <div>
                 <label htmlFor="model" className="block text-sm font-medium text-foreground mb-1">Nome Modello</label>
-                <input
-                  type="text"
+                <select
                   id="model"
                   name="model"
-                  value={aiConfig.model}
+                  value={(aiConfig as OllamaConfig).model}
                   onChange={handleOllamaChange}
-                  placeholder="es. llava"
-                  className="w-full bg-background border border-border rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                 <p className="text-xs text-muted mt-1">Per la trascrizione, assicurati di usare un modello multimodale (es. LLaVA).</p>
+                  className="w-full bg-background border border-border rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
+                >
+                  {ollamaModels.map(model => (
+                    <option key={model.id} value={model.id}>{model.name}</option>
+                  ))}
+                </select>
+                 <p className="text-xs text-muted mt-1">Per la trascrizione audio, è necessario usare un modello multimodale (es. LLaVA).</p>
               </div>
             </div>
           )}
