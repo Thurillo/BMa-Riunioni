@@ -1,5 +1,3 @@
-// Implemented the full content of this module to resolve "not a module" errors.
-// This service provides functions to interact with the Google Gemini API for transcription and summarization.
 
 import { GoogleGenAI } from "@google/genai";
 import { AIConfig, AIProvider } from '../types';
@@ -78,10 +76,8 @@ export const transcribeAudio = async (
   }
 
   // Gemini logic
-  // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY to align with guidelines and fix TypeScript error.
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    // FIX: Updated error message for consistency with the new API key source.
     throw new Error("La variabile d'ambiente API_KEY non è impostata.");
   }
   const ai = new GoogleGenAI({ apiKey });
@@ -169,10 +165,8 @@ Sii oggettivo e basati esclusivamente sulle informazioni presenti nella trascriz
   }
 
   // Gemini logic
-  // FIX: Replaced import.meta.env.VITE_API_KEY with process.env.API_KEY to align with guidelines and fix TypeScript error.
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    // FIX: Updated error message for consistency with the new API key source.
     throw new Error("La variabile d'ambiente API_KEY non è impostata.");
   }
   const ai = new GoogleGenAI({ apiKey });

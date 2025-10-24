@@ -114,9 +114,6 @@ const App: React.FC = () => {
             ]}
           />
         );
-      // Fix: Render ResultsScreen for both PROCESSING_SUMMARY and RESULTS states
-      // This allows the summary generation to show a loading state on the results page
-      // instead of switching to a full-screen spinner, and resolves the TypeScript error.
       case AppState.PROCESSING_SUMMARY:
       case AppState.RESULTS:
         return (
@@ -141,7 +138,7 @@ const App: React.FC = () => {
       <div className="w-full max-w-4xl mx-auto">
         <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-                <h1 className="text-6xl font-extrabold" aria-label="BMA">
+                <h1 className="text-6xl font-extrabold">
                     <span className="text-brand-primary">B</span>
                     <span className="text-brand-primary">M</span>
                     <span className="text-brand-secondary">A</span>

@@ -1,5 +1,3 @@
-// Implemented the full content of this module to resolve "not a module" errors.
-// This component renders the initial screen where the user can choose to record or upload audio.
 
 import React, { useRef, useState } from 'react';
 import { Mic, Upload, Loader, CheckCircle, XCircle } from 'lucide-react';
