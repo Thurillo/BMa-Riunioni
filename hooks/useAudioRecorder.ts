@@ -24,6 +24,13 @@ const useAudioRecorder = ({ onRecordingComplete }: UseAudioRecorderProps) => {
   }, []);
 
   const startRecording = useCallback(async () => {
+    // Check for browser support and secure context (HTTPS/localhost)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('Funzionalità di registrazione non supportata. Assicurati di eseguire l\'app in un contesto sicuro (HTTPS o localhost) e di utilizzare un browser moderno.');
+      setIsRecording(false);
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setIsRecording(true);
