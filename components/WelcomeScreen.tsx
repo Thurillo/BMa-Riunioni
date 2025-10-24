@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { AIConfig } from '../types';
 import { Mic, Upload, BrainCircuit } from 'lucide-react';
 
@@ -14,6 +14,30 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onFileUpload,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isRecordingSupported, setIsRecordingSupported] = useState(true);
+  const [micSupportMessage, setMicSupportMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check for microphone support on component mount. This is crucial for sandboxed 
+    // environments or non-secure contexts (HTTP) where the API might be disabled.
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setIsRecordingSupported(false);
+      setMicSupportMessage("Registrazione non supportata: usa un browser moderno su una connessione sicura (HTTPS).");
+    } else {
+      // Check permission status to provide more specific feedback if already denied.
+      navigator.permissions.query({ name: 'microphone' as PermissionName }).then(permissionStatus => {
+        if (permissionStatus.state === 'denied') {
+          setIsRecordingSupported(false);
+          setMicSupportMessage("Accesso al microfono bloccato. Abilitalo nelle impostazioni del browser per questo sito.");
+        }
+      }).catch(err => {
+        // This can happen in some browsers like Firefox if the user hasn't interacted yet.
+        // We'll assume support is present and let getUserMedia trigger the prompt.
+        console.warn("Avviso: impossibile interrogare i permessi del microfono. Si procederà normalmente.", err);
+      });
+    }
+  }, []);
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -24,6 +48,12 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
+  };
+  
+  const handleStartRecordingClick = () => {
+    if (isRecordingSupported) {
+      onStartRecording();
+    }
   };
 
   return (
@@ -40,11 +70,16 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
         {/* Start Recording Card */}
         <div 
-            className="bg-card border-2 border-border hover:border-primary p-8 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 transform hover:scale-105 shadow-card"
-            onClick={onStartRecording}
+            className={`bg-card border-2 border-border p-8 rounded-2xl flex flex-col items-center justify-center text-center transition-all duration-300 shadow-card ${
+              isRecordingSupported 
+                ? 'hover:border-primary transform hover:scale-105 cursor-pointer' 
+                : 'opacity-60 cursor-not-allowed'
+            }`}
+            onClick={handleStartRecordingClick}
             role="button"
-            tabIndex={0}
-            onKeyPress={(e) => e.key === 'Enter' && onStartRecording()}
+            tabIndex={isRecordingSupported ? 0 : -1}
+            onKeyPress={(e) => e.key === 'Enter' && handleStartRecordingClick()}
+            aria-disabled={!isRecordingSupported}
         >
           <div className="bg-primary/10 p-5 rounded-full mb-5">
             <Mic className="h-10 w-10 text-primary" />
@@ -53,6 +88,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <p className="text-muted">
             Cattura l'audio della riunione direttamente dal tuo microfono.
           </p>
+           {micSupportMessage && (
+            <p className="text-xs text-destructive mt-3 font-medium">{micSupportMessage}</p>
+          )}
         </div>
 
         {/* Upload File Card */}
